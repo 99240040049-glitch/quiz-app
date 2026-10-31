@@ -1,0 +1,69 @@
+
+name: QuizApp CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout source code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: npm ci
+
+      # Step 4: Run tests
+      - name: Run Tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        env:
+          CI: true
+
+      # Step 5: Build React application
+      - name: Build Application
+        run: npm run build
+        env:
+          PUBLIC_URL: /${{ github.event.repository.name }}
+
+      # Step 6: Configure GitHub Pages
+      - name: Configure Pages
+        if: github.event_name == 'push'
+        uses: actions/configure-pages@v5
+
+      # Step 7: Upload build files
+      - name: Upload Build Artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./build
+
+      # Step 8: Deploy application
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
+        id: deployment
+        uses: actions/deploy-pages@v4
